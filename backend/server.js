@@ -21,7 +21,7 @@
  *   /api/admin         - Admin management
  */
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const express    = require('express');
 const http       = require('http');
@@ -137,7 +137,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 // ---------------------------------------------------------------
 // Request Logging
@@ -156,8 +155,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ---------------------------------------------------------------
 // Static File Serving - Uploads folder
-// ---------------------------------------------------------------
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const uploadsPath = process.env.VERCEL
+  ? '/tmp/uploads'
+  : path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(uploadsPath));
 
 // ---------------------------------------------------------------
 // Root Route — confirms server identity & version
@@ -229,30 +230,42 @@ app.use(errorHandler);
 // ---------------------------------------------------------------
 const PORT = parseInt(process.env.PORT, 10) || 5000;
 
-server.listen(PORT, () => {
-  console.log('');
-  console.log('╔══════════════════════════════════════════════════════╗');
-  console.log('║     TELANGANA TODAY - Pipeline Server                ║');
-  console.log('╠══════════════════════════════════════════════════════╣');
-  console.log(`║  🚀 Server running on port     : ${PORT}                 ║`);
-  console.log(`║  🌐 Environment                : ${(process.env.NODE_ENV || 'development').padEnd(20)}║`);
-  console.log(`║  🔗 API Base URL               : http://localhost:${PORT}/api ║`);
-  console.log(`║  🔌 Socket.io                  : enabled              ║`);
-  console.log(`║  📁 Uploads dir                : /uploads             ║`);
-  console.log('╚══════════════════════════════════════════════════════╝');
-  console.log('');
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════╗');
+    console.log('║     TELANGANA TODAY - Pipeline Server                ║');
+    console.log('╠══════════════════════════════════════════════════════╣');
+    console.log(`║  🚀 Server running on port     : ${PORT}                 ║`);
+    console.log(`║  🌐 Environment                : ${(process.env.NODE_ENV || 'development').padEnd(20)}║`);
+    console.log(`║  🔗 API Base URL               : http://localhost:${PORT}/api ║`);
+    console.log(`║  🔌 Socket.io                  : enabled              ║`);
+    console.log(`║  📁 Uploads dir                : /uploads             ║`);
+    console.log('╚══════════════════════════════════════════════════════╝');
+    console.log('');
 
-  // Verify DB connection after server is already accepting requests
+    // Verify DB connection after server is already accepting requests
+    pool.getConnection()
+      .then(connection => {
+        console.log('✅ [Database] Connected to MySQL successfully.');
+        connection.release();
+      })
+      .catch(err => {
+        console.error('⚠️  [Database] Could not connect to MySQL at startup:', err.message);
+        console.error('   The server will continue running. DB-dependent routes will fail until DB is available.');
+      });
+  });
+} else {
+  // Verify DB connection for serverless cold start
   pool.getConnection()
     .then(connection => {
-      console.log('✅ [Database] Connected to MySQL successfully.');
+      console.log('✅ [Database] Serverless startup: Connected to MySQL successfully.');
       connection.release();
     })
     .catch(err => {
-      console.error('⚠️  [Database] Could not connect to MySQL at startup:', err.message);
-      console.error('   The server will continue running. DB-dependent routes will fail until DB is available.');
+      console.error('⚠️  [Database] Serverless startup: Could not connect to MySQL:', err.message);
     });
-});
+}
 
 // ---------------------------------------------------------------
 // Graceful Shutdown
