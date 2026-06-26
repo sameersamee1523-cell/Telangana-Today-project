@@ -293,7 +293,7 @@ const getReporters = async (req, res, next) => {
        LEFT JOIN departments d ON u.department_id = d.id
        LEFT JOIN stories s ON s.reporter_id = u.id AND s.status NOT IN ('published','rejected')
        WHERE u.role = 'reporter' AND u.is_active = 1
-       GROUP BY u.id
+       GROUP BY u.id, u.name, u.email, u.avatar, u.phone, d.name
        ORDER BY u.name ASC`
     );
 

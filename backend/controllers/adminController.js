@@ -58,10 +58,10 @@ const getAuditLogs = async (req, res, next) => {
 const getDepartments = async (req, res, next) => {
   try {
     const [departments] = await pool.query(
-      `SELECT d.*, COUNT(u.id) AS user_count
+      `SELECT d.id, d.name, d.description, d.created_at, d.updated_at, COUNT(u.id) AS user_count
        FROM departments d
        LEFT JOIN users u ON u.department_id = d.id AND u.is_active = 1
-       GROUP BY d.id
+       GROUP BY d.id, d.name, d.description, d.created_at, d.updated_at
        ORDER BY d.name ASC`
     );
     return res.status(200).json({ success: true, departments });
@@ -188,10 +188,10 @@ const deleteDepartment = async (req, res, next) => {
 const getCategories = async (req, res, next) => {
   try {
     const [categories] = await pool.query(
-      `SELECT c.*, COUNT(s.id) AS story_count
+      `SELECT c.id, c.name, c.color, c.description, c.created_at, c.updated_at, COUNT(s.id) AS story_count
        FROM categories c
        LEFT JOIN stories s ON s.category_id = c.id
-       GROUP BY c.id
+       GROUP BY c.id, c.name, c.color, c.description, c.created_at, c.updated_at
        ORDER BY c.name ASC`
     );
     return res.status(200).json({ success: true, categories });

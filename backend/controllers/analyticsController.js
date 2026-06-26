@@ -28,7 +28,7 @@ const getReporterPerformance = async (req, res, next) => {
        FROM users u
        LEFT JOIN stories s ON s.reporter_id = u.id
        WHERE u.role = 'reporter' AND u.is_active = 1
-       GROUP BY u.id
+       GROUP BY u.id, u.name, u.email, u.avatar
        ORDER BY total DESC`
     );
 
@@ -87,7 +87,7 @@ const getDeadlineCompliance = async (req, res, next) => {
        FROM users u
        JOIN stories s ON s.reporter_id = u.id AND s.deadline IS NOT NULL
        WHERE u.role = 'reporter' AND u.is_active = 1
-       GROUP BY u.id
+       GROUP BY u.id, u.name
        ORDER BY compliance_rate DESC`
     );
 
