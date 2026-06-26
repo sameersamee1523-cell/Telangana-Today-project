@@ -3,24 +3,32 @@ services:
     name: pipeline-server
     env: node
     region: oregon
+    plan: starter
     buildCommand: npm install --prefix backend
-    startCommand: npm start --prefix backend
+    startCommand: node backend/server.js
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "10000"
+      # ── Aiven MySQL ──────────────────────────────────
       - key: DB_HOST
-        sync: false
+        value: mysql-38771e2e-sameersamee1523-ffb2.l.aivencloud.com
       - key: DB_PORT
-        value: "4000"
+        value: "14795"
       - key: DB_USER
-        sync: false
+        value: avnadmin
       - key: DB_PASSWORD
-        sync: false
+        sync: false          # Set this manually in Render dashboard
       - key: DB_NAME
-        sync: false
+        value: defaultdb
       - key: DB_SSL
         value: "true"
+      # ── Auth ─────────────────────────────────────────
       - key: JWT_SECRET
-        sync: false
+        sync: false          # Set this manually in Render dashboard
+      - key: JWT_EXPIRES_IN
+        value: "7d"
+      # ── Frontend URL ──────────────────────────────────
       - key: CLIENT_URL
-        sync: false
+        sync: false          # Set after frontend is deployed
