@@ -164,7 +164,7 @@ export default function StoryFormPage() {
                 <label className="label">Assign Reporter</label>
                 <select name="reporter_id" value={form.reporter_id} onChange={handleChange} className="input">
                   <option value="">Select a reporter</option>
-                  {reporters.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  {reporters.map(r => <option key={r.id} value={r.id}>{r.name} ({r.email})</option>)}
                 </select>
               </div>
               <div>
