@@ -23,28 +23,54 @@
 
 require('dotenv').config();
 
-const express     = require('express');
-const http        = require('http');
-const { Server }  = require('socket.io');
-const cors        = require('cors');
-const helmet      = require('helmet');
-const morgan      = require('morgan');
-const path        = require('path');
+const express    = require('express');
+const http       = require('http');
+const { Server } = require('socket.io');
+const cors       = require('cors');
+const helmet     = require('helmet');
+const morgan     = require('morgan');
+const path       = require('path');
 
-const pool          = require('./config/db');
-const errorHandler  = require('./middleware/errorHandler');
+// ---------------------------------------------------------------
+// Core modules — crash immediately if any of these fail
+// ---------------------------------------------------------------
+console.log('[Startup] Loading core modules...');
+const pool         = require('./config/db');
+const errorHandler = require('./middleware/errorHandler');
 const { initSocket } = require('./sockets/handlers');
+console.log('[Startup] Core modules loaded OK');
 
 // ---------------------------------------------------------------
-// Route imports
+// Route imports — wrapped individually so a single bad file
+// does NOT silently kill all routes; error is visible in logs
 // ---------------------------------------------------------------
-const authRoutes         = require('./routes/auth');
-const userRoutes         = require('./routes/users');
-const storyRoutes        = require('./routes/stories');
-const notificationRoutes = require('./routes/notifications');
-const analyticsRoutes    = require('./routes/analytics');
-const reportRoutes       = require('./routes/reports');
-const adminRoutes        = require('./routes/admin');
+console.log('[Startup] Loading route modules...');
+
+let authRoutes, userRoutes, storyRoutes, notificationRoutes,
+    analyticsRoutes, reportRoutes, adminRoutes;
+
+try { authRoutes = require('./routes/auth'); console.log('[Startup] ✅ auth routes loaded'); }
+catch (e) { console.error('[Startup] ❌ auth routes FAILED:', e.message); process.exit(1); }
+
+try { userRoutes = require('./routes/users'); console.log('[Startup] ✅ users routes loaded'); }
+catch (e) { console.error('[Startup] ❌ users routes FAILED:', e.message); process.exit(1); }
+
+try { storyRoutes = require('./routes/stories'); console.log('[Startup] ✅ stories routes loaded'); }
+catch (e) { console.error('[Startup] ❌ stories routes FAILED:', e.message); process.exit(1); }
+
+try { notificationRoutes = require('./routes/notifications'); console.log('[Startup] ✅ notifications routes loaded'); }
+catch (e) { console.error('[Startup] ❌ notifications routes FAILED:', e.message); process.exit(1); }
+
+try { analyticsRoutes = require('./routes/analytics'); console.log('[Startup] ✅ analytics routes loaded'); }
+catch (e) { console.error('[Startup] ❌ analytics routes FAILED:', e.message); process.exit(1); }
+
+try { reportRoutes = require('./routes/reports'); console.log('[Startup] ✅ reports routes loaded'); }
+catch (e) { console.error('[Startup] ❌ reports routes FAILED:', e.message); process.exit(1); }
+
+try { adminRoutes = require('./routes/admin'); console.log('[Startup] ✅ admin routes loaded'); }
+catch (e) { console.error('[Startup] ❌ admin routes FAILED:', e.message); process.exit(1); }
+
+console.log('[Startup] All route modules loaded successfully');
 
 // ---------------------------------------------------------------
 // App & Server Initialization
@@ -88,14 +114,17 @@ app.use(
 // ---------------------------------------------------------------
 // CORS
 // ---------------------------------------------------------------
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://telangana-today.vercel.app'
+].filter(Boolean);
+
 const corsOptions = {
   origin: (origin, callback) => {
-    const allowedOrigins = [
-      process.env.CLIENT_URL || 'http://localhost:5173',
-      'http://localhost:3000',
-      'http://localhost:5174'
-    ];
-    // Allow requests with no origin (e.g. server-to-server, Postman)
+    // Allow requests with no origin (e.g. server-to-server, Postman, curl)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -108,7 +137,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('/{*path}', cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // ---------------------------------------------------------------
 // Request Logging
@@ -120,7 +149,7 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // ---------------------------------------------------------------
-// Body Parsers
+// Body Parsers — MUST be before routes
 // ---------------------------------------------------------------
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -129,6 +158,19 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static File Serving - Uploads folder
 // ---------------------------------------------------------------
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ---------------------------------------------------------------
+// Root Route — confirms server identity & version
+// ---------------------------------------------------------------
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    service: 'Telangana Today - Pipeline Server',
+    version: '1.0.0',
+    status:  'running',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // ---------------------------------------------------------------
 // Health Check Endpoint
@@ -182,42 +224,35 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 // ---------------------------------------------------------------
-// Start Server
+// Start Server — listen FIRST, then verify DB connection
+// This ensures routes are always reachable even if DB is slow
 // ---------------------------------------------------------------
 const PORT = parseInt(process.env.PORT, 10) || 5000;
 
-const startServer = async () => {
-  try {
-    // Verify database connection before accepting requests
-    const connection = await pool.getConnection();
-    console.log('✅ [Database] Connected to MySQL successfully.');
-    connection.release();
+server.listen(PORT, () => {
+  console.log('');
+  console.log('╔══════════════════════════════════════════════════════╗');
+  console.log('║     TELANGANA TODAY - Pipeline Server                ║');
+  console.log('╠══════════════════════════════════════════════════════╣');
+  console.log(`║  🚀 Server running on port     : ${PORT}                 ║`);
+  console.log(`║  🌐 Environment                : ${(process.env.NODE_ENV || 'development').padEnd(20)}║`);
+  console.log(`║  🔗 API Base URL               : http://localhost:${PORT}/api ║`);
+  console.log(`║  🔌 Socket.io                  : enabled              ║`);
+  console.log(`║  📁 Uploads dir                : /uploads             ║`);
+  console.log('╚══════════════════════════════════════════════════════╝');
+  console.log('');
 
-    server.listen(PORT, () => {
-      console.log('');
-      console.log('╔══════════════════════════════════════════════════════╗');
-      console.log('║     TELANGANA TODAY - Pipeline Server                ║');
-      console.log('╠══════════════════════════════════════════════════════╣');
-      console.log(`║  🚀 Server running on port     : ${PORT}                 ║`);
-      console.log(`║  🌐 Environment                : ${(process.env.NODE_ENV || 'development').padEnd(20)}║`);
-      console.log(`║  🔗 API Base URL               : http://localhost:${PORT}/api ║`);
-      console.log(`║  🔌 Socket.io                  : enabled              ║`);
-      console.log(`║  📁 Uploads dir                : /uploads             ║`);
-      console.log('╚══════════════════════════════════════════════════════╝');
-      console.log('');
-      console.log('  API Endpoints:');
-      console.log(`    POST   http://localhost:${PORT}/api/auth/login`);
-      console.log(`    GET    http://localhost:${PORT}/api/stories`);
-      console.log(`    GET    http://localhost:${PORT}/api/analytics/dashboard-stats`);
-      console.log(`    GET    http://localhost:${PORT}/api/health`);
-      console.log('');
+  // Verify DB connection after server is already accepting requests
+  pool.getConnection()
+    .then(connection => {
+      console.log('✅ [Database] Connected to MySQL successfully.');
+      connection.release();
+    })
+    .catch(err => {
+      console.error('⚠️  [Database] Could not connect to MySQL at startup:', err.message);
+      console.error('   The server will continue running. DB-dependent routes will fail until DB is available.');
     });
-  } catch (err) {
-    console.error('❌ [Database] Failed to connect to MySQL:', err.message);
-    console.error('   Please check your .env DB_* configuration and ensure MySQL is running.');
-    process.exit(1);
-  }
-};
+});
 
 // ---------------------------------------------------------------
 // Graceful Shutdown
@@ -240,7 +275,7 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   console.error('[UnhandledRejection]', reason);
   // Do not exit — log and continue
 });
@@ -250,7 +285,5 @@ process.on('uncaughtException', (err) => {
   console.error('[UncaughtException]', err);
   process.exit(1);
 });
-
-startServer();
 
 module.exports = { app, server, io };
