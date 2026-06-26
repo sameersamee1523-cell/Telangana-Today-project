@@ -31,4 +31,4 @@ services:
         value: "7d"
       # ── Frontend URL ──────────────────────────────────
       - key: CLIENT_URL
-        value: "*"
+        value: "https://telangana-today.vercel.app"
