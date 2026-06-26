@@ -14,7 +14,8 @@ const {
   createUser,
   updateUser,
   deleteUser,
-  getReporters
+  getReporters,
+  resetUserPassword
 } = require('../controllers/userController');
 
 const { authenticate, authorize } = require('../middleware/auth');
@@ -78,6 +79,9 @@ router.put(
   ],
   updateUser
 );
+
+// PATCH /api/users/:id/reset-password - admin/chief_editor only
+router.patch('/:id/reset-password', authorize('admin', 'chief_editor'), resetUserPassword);
 
 // DELETE /api/users/:id - admin only (soft delete)
 router.delete('/:id', authorize('admin'), deleteUser);

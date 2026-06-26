@@ -29,6 +29,7 @@ export const usersAPI = {
   create: (data) => api.post('/users', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
+  resetPassword: (id, newPassword) => api.patch(`/users/${id}/reset-password`, { newPassword }),
 }
 
 export const storiesAPI = {

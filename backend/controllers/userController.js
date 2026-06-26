@@ -303,4 +303,46 @@ const getReporters = async (req, res, next) => {
   }
 };
 
-module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, getReporters };
+// ---------------------------------------------------------------
+// PATCH /api/users/:id/reset-password
+// Admin/Chief Editor resets another user's password
+// ---------------------------------------------------------------
+const resetUserPassword = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters.'
+      });
+    }
+
+    const [existing] = await pool.query('SELECT id, name FROM users WHERE id = ?', [id]);
+    if (!existing.length) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, id]);
+
+    await generateAuditLog({
+      userId:     req.user.id,
+      action:     'RESET_USER_PASSWORD',
+      entityType: 'user',
+      entityId:   parseInt(id),
+      details:    { targetUser: existing[0].name, resetBy: req.user.email },
+      ipAddress:  getClientIp(req)
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Password for "${existing[0].name}" has been reset successfully.`
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, getReporters, resetUserPassword };
